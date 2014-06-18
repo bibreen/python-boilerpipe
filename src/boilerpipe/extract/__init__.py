@@ -1,8 +1,13 @@
 import jpype
-import urllib2
 import socket
 import charade
 import threading
+import sys
+
+if sys.version_info[0] > 2:
+    from urllib.request import Request, urlopen
+else:
+    from urllib2 import Request, urlopen
 
 socket.setdefaulttimeout(15)
 lock = threading.Lock()
@@ -32,16 +37,21 @@ class Extractor(object):
     
     def __init__(self, extractor='DefaultExtractor', **kwargs):
         if kwargs.get('url'):
-            request     = urllib2.Request(kwargs['url'], headers=self.headers)
-            connection  = urllib2.urlopen(request)
+            request     = Request(kwargs['url'], headers=self.headers)
+            connection  = urlopen(request)
             self.data   = connection.read()
             encoding    = connection.headers['content-type'].lower().split('charset=')[-1]
             if encoding.lower() == 'text/html':
                 encoding = charade.detect(self.data)['encoding']
-            self.data = unicode(self.data, encoding)
+            if sys.version_info[0] > 2:
+                self.data = str(self.data, encoding)
+            if sys.version_info[0] <= 2:
+                self.data = unicode(self.data, encoding)
         elif kwargs.get('html'):
             self.data = kwargs['html']
-            if not isinstance(self.data, unicode):
+            if sys.version_info[0] > 2 and not isinstance(self.data, str):
+                self.data = str(self.data, charade.detect(self.data)['encoding'])
+            if sys.version_info[0] <= 2 and not isinstance(self.data, unicode):
                 self.data = unicode(self.data, charade.detect(self.data)['encoding'])
         else:
             raise Exception('No text or url provided')
